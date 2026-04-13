@@ -3,8 +3,10 @@
 import os
 import shutil
 import typing
+from functools import partial
 
-from pleskdistup.common import action, leapp_configs, files
+from pleskdistup.common import action, leapp_configs, files, rpm
+from .common import get_adapted_repository
 
 
 class PrepareLeappConfigurationBackup(action.ActiveAction):
@@ -14,6 +16,7 @@ class PrepareLeappConfigurationBackup(action.ActiveAction):
         self.name = "prepare leapp configuration backup"
         self.leapp_configs = ["/etc/leapp/files/leapp_upgrade_repositories.repo",
                               "/etc/leapp/files/repomap.csv",
+                              "/etc/leapp/files/repomap.json",
                               "/etc/leapp/files/pes-events.json"]
 
     def _prepare_action(self) -> action.ActionResult:
@@ -38,6 +41,57 @@ class PrepareLeappConfigurationBackup(action.ActiveAction):
         return action.ActionResult()
 
 
+class PleskMainRepoTemporary(action.ActiveAction):
+
+    def __init__(self) -> None:
+        self.name = "temporarily create Plesk main repository"
+        self.repo_filepath = "/etc/yum.repos.d/plesk-convert_tmp.repo"
+
+    def _create_temporary_plesk_repo(self, repofiles: typing.List[str],
+                                     repo_filepath: str) -> str:
+        with open(repo_filepath, 'w') as repo_file:
+            repo_file.write("# Automatically generated (temporary) by Plesk distribution upgrade script\n")
+            for file in repofiles:
+                if not os.path.exists(file):
+                    continue
+
+                for repo in rpm.extract_repodata(file):
+                    if repo.enabled == "0":
+                        continue
+                    if repo.id is None or repo.name is None or repo.url is None \
+                            or not repo.id.startswith("PLESK_18_0") \
+                            or "extras" not in repo.id:
+                        continue
+
+                    dist_repo = rpm.Repository(
+                        "alma8-" + repo.id.replace("-extras", ""),
+                        name= "Alma XX " + repo.name.replace("extras", ""),
+                        url=repo.url.replace("extras", "dist"),
+                        metalink=None,
+                        mirrorlist=None,
+                        enabled="1\n",
+                        gpgcheck="1\n",
+                    )
+                    repo_file.write(repr(dist_repo))
+                    return dist_repo.id
+        return ''
+
+    def _prepare_action(self) -> action.ActionResult:
+        repofiles = files.find_files_case_insensitive("/etc/yum.repos.d", ["plesk*.repo"])
+        self._create_temporary_plesk_repo(repofiles, self.repo_filepath)
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        if os.path.exists(self.repo_filepath):
+            os.unlink(self.repo_filepath)
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        if os.path.exists(self.repo_filepath):
+            os.unlink(self.repo_filepath)
+        return action.ActionResult()
+
+
 class LeappReposConfiguration(action.ActiveAction):
 
     def __init__(self) -> None:
@@ -46,9 +100,13 @@ class LeappReposConfiguration(action.ActiveAction):
     def _prepare_action(self) -> action.ActionResult:
         repofiles = files.find_files_case_insensitive("/etc/yum.repos.d", ["plesk*.repo", "epel.repo"])
 
-        leapp_configs.add_repositories_mapping(repofiles, ignore=[
-            "PLESK_17_PHP52", "PLESK_17_PHP53", "PLESK_17_PHP54", "PLESK_17_PHP55",
-        ])
+        leapp_configs.add_repositories_mapping_json(repofiles, ignore=[
+            "PLESK_17_PHP52", "PLESK_17_PHP53", "PLESK_17_PHP54", "PLESK_17_PHP55"],
+                                               do_adapt_repository=partial(get_adapted_repository, keep_id=False),
+                                               mapjson_path=leapp_configs.LEAPP_MAP_JSON_PATH,
+                                               distro="almalinux",
+                                               source_major_version="8",
+                                               target_major_version="9")
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
@@ -70,6 +128,7 @@ class LeappChoicesConfiguration(action.ActiveAction):
         try:
             with open(self.answer_file_path, 'w') as userchoice:
                 userchoice.write("[remove_pam_pkcs11_module_check]\nconfirm = True\n")
+                userchoice.write("[check_vdo]\nconfirm = True\n")
         except FileNotFoundError:
             raise RuntimeError("Unable to create the leapp user answer file '{}'. Likely the script does not have "
                                "sufficient permissions to write in this directory. Please run the script as root "
@@ -80,50 +139,6 @@ class LeappChoicesConfiguration(action.ActiveAction):
     def _post_action(self) -> action.ActionResult:
         if os.path.exists(self.answer_file_path):
             os.unlink(self.answer_file_path)
-        return action.ActionResult()
-
-    def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult()
-
-
-# Merge of former actions PatchLeappErrorOutput,
-# PatchLeappHandleDnfpluginErrorAscii from centos2alma
-class PatchDnfpluginErrorOutput(action.ActiveAction):
-    path_to_src: str
-
-    def __init__(self) -> None:
-        self.name = "patch leapp dnf plugin error log output"
-        self.path_to_src = "/usr/share/leapp-repository/repositories/system_upgrade/common/libraries/dnfplugin.py"
-
-    def _prepare_action(self) -> action.ActionResult:
-        # Looks like there is no setter for stdout/stderr in the python for leapp
-        files.replace_string(self.path_to_src, "if six.PY2:", "if True:")
-        return action.ActionResult()
-
-    def _post_action(self) -> action.ActionResult:
-        return action.ActionResult()
-
-    def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult()
-
-
-class PatchLeappDebugNonAsciiPackager(action.ActiveAction):
-    path_to_src: str
-
-    def __init__(self) -> None:
-        self.name = "patch leapp to allow print debug message for non-ascii packager"
-        self.path_to_src = "/usr/share/leapp-repository/repositories/system_upgrade/common/actors/redhatsignedrpmscanner/actor.py"
-
-    def is_required(self) -> bool:
-        return os.path.exists(self.path_to_src)
-
-    def _prepare_action(self) -> action.ActionResult:
-        # so sometimes we could have non-ascii packager name, in this case leapp will fail
-        # on printing debug message. So we need to encode it to utf-8 before print (and only before print I think)
-        files.replace_string(self.path_to_src, ", pkg.packager", ", pkg.packager.encode('utf-8')")
-        return action.ActionResult()
-
-    def _post_action(self) -> action.ActionResult:
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:

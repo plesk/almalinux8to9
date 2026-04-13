@@ -3,8 +3,10 @@ import locale
 import os
 import subprocess
 import typing
+from functools import partial
 
 from pleskdistup.common import action, files, leapp_configs, log, postgres, systemd, util
+from .common import get_adapted_repository
 
 _ALMA8_POSTGRES_VERSION = 10
 
@@ -140,8 +142,13 @@ class PostgresReinstallModernPackage(action.ActiveAction):
         return f'postgresql-{major_version}'
 
     def _prepare_action(self) -> action.ActionResult:
-        leapp_configs.add_repositories_mapping(["/etc/yum.repos.d/pgdg-redhat-all.repo"], skip_disabled=True)
-
+        leapp_configs.add_repositories_mapping_json(["/etc/yum.repos.d/pgdg-redhat-all.repo"],
+                                               do_adapt_repository=partial(get_adapted_repository, keep_id=False),
+                                               skip_disabled=True,
+                                               mapjson_path=leapp_configs.LEAPP_MAP_JSON_PATH,
+                                               distro="almalinux",
+                                               source_major_version="8",
+                                               target_major_version="9")
         for major_version in self._get_versions():
             service_name = self._get_service_name(major_version)
             if self._is_service_active(service_name):

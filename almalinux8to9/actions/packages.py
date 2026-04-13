@@ -3,10 +3,12 @@ import os
 import typing
 import shutil
 import re
+from functools import partial
 
 from pleskdistup.common import action, files, leapp_configs, log, motd, packages, plesk, rpm, systemd, util
+from .common import get_adapted_repository
 
-BASE_REPO_PATHS = ["/etc/yum.repos.d/base.repo", "/etc/yum.repos.d/cloudlinux-base.repo"]
+BASE_REPO_PATHS = ["/etc/yum.repos.d/base.repo", "/etc/yum.repos.d/almalinux-base.repo"]
 
 
 class RemovingPleskConflictPackages(action.ActiveAction):
@@ -140,7 +142,7 @@ class ReinstallConflictPackages(action.ActiveAction):
 
     def __init__(self, temp_directory: str):
         self.name = "re-installing common conflict packages"
-        self.removed_packages_file = temp_directory + "/cloudlinux7to8_removed_packages.txt"
+        self.removed_packages_file = temp_directory + "/almalinux8to9_removed_packages.txt"
         self.conflict_pkgs_map = {
             "python36-argcomplete": "python3-argcomplete",
             "python36-cffi": "python3-cffi",
@@ -266,19 +268,21 @@ class AdoptRepositories(action.ActiveAction):
                 lambda repo: repo.id in ["PLESK_17_PHP52", "PLESK_17_PHP53",
                                          "PLESK_17_PHP54", "PLESK_17_PHP55"],
             ])
-            leapp_configs.adopt_repositories(file)
+            leapp_configs.adopt_repositories(file,
+                                             do_adapt_repository=partial(get_adapted_repository, keep_id=False))
 
     def _adopt_base_repository(self) -> None:
         for path in BASE_REPO_PATHS:
             if os.path.exists(path):
-                leapp_configs.adopt_repositories(path)
+                leapp_configs.adopt_repositories(path,
+                                                do_adapt_repository=partial(get_adapted_repository, keep_id=False))
 
     def _post_action(self) -> action.ActionResult:
         self._use_rpmnew_repositories()
         self._adopt_plesk_repositories()
         self._adopt_base_repository()
         util.logged_check_call(["/usr/bin/dnf", "clean", "all"])
-        util.logged_check_call(["/usr/bin/dnf", "-y", "update", "--disablerepo=cloudlinux-elevate"])
+        util.logged_check_call(["/usr/bin/dnf", "-y", "update", "--disablerepo=elevate"])
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
@@ -304,7 +308,7 @@ class RemovePleskBaseRepository(action.ActiveAction):
 
     def _is_plesk_base(self, repo_file: str) -> bool:
         for repo in rpm.extract_repodata(repo_file):
-            if repo.url and "psabr.aws.plesk.tech/share/mirror/cloudlinux/7" in repo.url:
+            if repo.url and "psabr.aws.plesk.tech/share/mirror/almalinux/8" in repo.url:
                 log.info(f"Plesk base repo found in {repo_file!r} by repository {repo.id!r}")
                 return True
         return False
@@ -430,7 +434,12 @@ class AdoptAtomicRepositories(action.ActiveAction):
         return os.path.exists(self.atomic_repository_path)
 
     def _prepare_action(self) -> action.ActionResult:
-        leapp_configs.add_repositories_mapping([self.atomic_repository_path])
+        leapp_configs.add_repositories_mapping_json([self.atomic_repository_path],
+                                               do_adapt_repository=partial(get_adapted_repository, keep_id=False),
+                                               mapjson_path=leapp_configs.LEAPP_MAP_JSON_PATH,
+                                               distro="almalinux",
+                                               source_major_version="8",
+                                               target_major_version="9")
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
@@ -439,27 +448,6 @@ class AdoptAtomicRepositories(action.ActiveAction):
 
     def _revert_action(self) -> action.ActionResult:
         return action.ActionResult()
-
-
-class SwitchClnChannel(action.ActiveAction):
-    def __init__(self) -> None:
-        self.name = "switching CLN channel"
-
-    def _prepare_action(self) -> action.ActionResult:
-        return action.ActionResult()
-
-    def _post_action(self) -> action.ActionResult:
-        # Switch from 7 to 8 is done internally by leapp
-        return action.ActionResult()
-
-    def _revert_action(self) -> action.ActionResult:
-        util.logged_check_call(["/usr/sbin/cln-switch-channel", "-t", "7", "-o", "-f"])
-        # Probably not really needed, but that's the way forward leapp logic is set up
-        util.logged_check_call(["/usr/bin/yum", "clean", "all"])
-        return action.ActionResult()
-
-    def estimate_revert_time(self) -> int:
-        return 2
 
 
 class CheckSourcePointsToArchiveURL(action.CheckAction):
@@ -494,13 +482,19 @@ class HandleInternetxRepository(action.ActiveAction):
     def _prepare_action(self) -> action.ActionResult:
         for file in files.find_files_case_insensitive("/etc/yum.repos.d", self.KNOWN_INTERNETX_REPO_FILES):
             files.backup_file(file)
-            leapp_configs.add_repositories_mapping([file])
+            leapp_configs.add_repositories_mapping_json([file],
+                                                   do_adapt_repository=partial(get_adapted_repository, keep_id=False),
+                                                   mapjson_path=leapp_configs.LEAPP_MAP_JSON_PATH,
+                                                   distro="almalinux",
+                                                   source_major_version="8",
+                                                   target_major_version="9")
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
         for file in files.find_files_case_insensitive("/etc/yum.repos.d", self.KNOWN_INTERNETX_REPO_FILES):
             files.remove_backup(file)
-            leapp_configs.adopt_repositories(file)
+            leapp_configs.adopt_repositories(file,
+                                            do_adapt_repository=partial(get_adapted_repository, keep_id=False))
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
@@ -522,9 +516,10 @@ class DisableBaseRepoUpdatesRepository(action.ActiveAction):
         for path in self.base_repo_paths:
             if os.path.exists(path):
                 rpm.remove_repositories(path, [
-                    lambda repo: repo.url is not None and "mirror.pp.plesk.tech/cloudlinux/7/updates" in repo.url,
+                    lambda repo: repo.url is not None and "mirror.pp.plesk.tech/almalinux/8/updates" in repo.url,
                 ])
         return action.ActionResult()
 
     def _revert_action(self) -> action.ActionResult:
         return action.ActionResult()
+

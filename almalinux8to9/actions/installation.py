@@ -5,7 +5,7 @@ import typing
 
 from pleskdistup.common import action, rpm, util
 
-LEAPP_CLOUDLINUX_RPM_URL = "https://repo.cloudlinux.com/elevate/elevate-release-latest-el7.noarch.rpm"
+LEAPP_ALMALINUX_RPM_URL = "https://repo.almalinux.org/elevate/elevate-release-latest-el8.noarch.rpm"
 
 
 class LeappInstallation(action.ActiveAction):
@@ -23,21 +23,21 @@ class LeappInstallation(action.ActiveAction):
         if not rpm.is_package_installed("elevate-release"):
             util.logged_check_call(["/usr/bin/yum", "install", "-y", self.elevate_release_rpm_url])
 
-        util.logged_check_call(["/usr/bin/yum-config-manager", "--enable", "cloudlinux-elevate"])
+        util.logged_check_call(["/usr/bin/yum-config-manager", "--enable", "elevate"])
 
         util.logged_check_call(["/usr/bin/yum", "install", "-y"] + self.pkgs_to_install)
         # We want to prevent the leapp packages from being updated accidentally to
         # the latest version (for example by using 'yum update -y'). Therefore, we
-        # should disable the 'cloudlinux-elevate' repository. Additionally, this will prevent
+        # should disable the 'elevate' repository. Additionally, this will prevent
         # the pre-checker from detecting leapp as outdated and prevent re-evaluation
         # on the next restart.
-        util.logged_check_call(["/usr/bin/yum-config-manager", "--disable", "cloudlinux-elevate"])
+        util.logged_check_call(["/usr/bin/yum-config-manager", "--disable", "elevate"])
         return action.ActionResult()
 
     def remove_all(self, include_logs: bool = True) -> None:
         rpm.remove_packages(
             rpm.filter_installed_packages(
-                self.pkgs_to_install + ["elevate-release", "leapp-upgrade-el7toel8"]
+                self.pkgs_to_install + ["elevate-release", "leapp-upgrade-el8toel9"]
             )
         )
 

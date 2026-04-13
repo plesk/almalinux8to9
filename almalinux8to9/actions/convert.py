@@ -22,16 +22,20 @@ class LeappPreupgradeRisksPreventedException(Exception):
         return f"{super().__str__()}\n{original_exception_str}The preventing factors are:\n{inhibitors_str}"
 
 
-class DoCloudLinux7to8Convert(action.ActiveAction):
+class DoAlmaLinux8to9Convert(action.ActiveAction):
     LEAPP_RESUME_SERVICE = "leapp_resume.service"
+    leapp_ovl_size: int
 
-    def __init__(self):
+    def __init__(self, leapp_ovl_size: int = 4096):
         self.name = "doing the conversion"
+        self.leapp_ovl_size = leapp_ovl_size
 
     def _prepare_action(self) -> action.ActionResult:
+        env_vars = os.environ.copy()
+        env_vars["LEAPP_OVL_SIZE"] = str(self.leapp_ovl_size)
+
         try:
-            util.logged_check_call(["/usr/bin/dnf", "clean", "all"])
-            util.logged_check_call(["/usr/bin/leapp", "preupgrade"])
+            util.log_outputs_check_call(["/usr/bin/leapp", "preupgrade"], collect_return_stdout=False, env=env_vars)
         except subprocess.CalledProcessError as e:
             inhibitors = leapp_configs.extract_leapp_report_inhibitors()
             if inhibitors:
@@ -39,7 +43,7 @@ class DoCloudLinux7to8Convert(action.ActiveAction):
             else:
                 raise e
 
-        util.logged_check_call(["/usr/bin/leapp", "upgrade", "--nowarn"])
+        util.log_outputs_check_call(["/usr/bin/leapp", "upgrade"], collect_return_stdout=False, env=env_vars)
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:

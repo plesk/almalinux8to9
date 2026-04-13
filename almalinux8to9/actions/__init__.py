@@ -6,6 +6,7 @@ from .convert import *
 from .extensions import *
 from .installation import *
 from .mariadb import *
+from .network_manager import *
 from .packages import *
 from .perl import *
 from .php import *

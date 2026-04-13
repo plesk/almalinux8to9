@@ -6,8 +6,8 @@ import sys
 import pleskdistup.main
 import pleskdistup.registry
 
-import cloudlinux7to8.upgrader
+import almalinux8to9.upgrader
 
 if __name__ == "__main__":
-    pleskdistup.registry.register_upgrader(cloudlinux7to8.upgrader.CloudLinux7to8Factory())
+    pleskdistup.registry.register_upgrader(almalinux8to9.upgrader.AlmaLinux8to9Factory())
     sys.exit(pleskdistup.main.main())

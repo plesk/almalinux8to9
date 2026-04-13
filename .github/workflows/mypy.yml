@@ -20,4 +20,4 @@ jobs:
       - name: Install mypy
         run: pip install mypy
       - name: Perform mypy lint of the pleskdistup package
-        run: mypy --package cloudlinux7to8
+        run: mypy --package almalinux8to9

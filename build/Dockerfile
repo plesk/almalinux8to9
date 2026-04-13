@@ -3,7 +3,7 @@
 # But little changed. Because GitHub actions mount sourcecode inside
 # the action, but we should do the same inside the container manually.
 # So to build you shoud just call docker like this:
-# > docker run -v ./:/target [container-name] build :cloudlinux7to8
+# > docker run -v ./:/target [container-name] build :almalinux8to9
 FROM openjdk:8
 
 MAINTAINER mmsandakov@gmail.com

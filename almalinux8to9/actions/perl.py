@@ -49,8 +49,8 @@ class AssertThereIsNoUnknownPerlCpanModules(action.CheckAction):
 \tPlease remove following modules manually from "{directory}" and reinstall them after the conversion:
 \t- {modules_list}
 
-\tThe cloudlinux7to8 tool is unable to handle these modules automatically as it does not have information about the RPM package analogues for them.
-\tIf you know the RPM analogues for these modules, please contact us at https://github.com/plesk/cloudlinux7to8/issues.
+\tThe almalinux8to9 tool is unable to handle these modules automatically as it does not have information about the RPM package analogues for them.
+\tIf you know the RPM analogues for these modules, please contact us at https://github.com/plesk/almalinux8to9/issues.
 
 \tYou can use the flag --remove-unknown-perl-modules to remove all of these modules automatically and force the conversion.
 \tPlease note that removing these modules may cause issues with Perl scripts.
@@ -78,7 +78,7 @@ class ReinstallPerlCpanModules(action.ActiveAction):
 
     def __init__(self, store_dir: str) -> None:
         self.name = "reinstalling perl cpan modules"
-        self.removed_modules_file = os.path.join(store_dir, "cloudlinux7to8_removed_perl_modules.txt")
+        self.removed_modules_file = os.path.join(store_dir, "almalinux8to9_removed_perl_modules.txt")
 
     def _is_required(self) -> bool:
         return not files.is_directory_empty(CPAN_MODULES_DIRECTORY)
