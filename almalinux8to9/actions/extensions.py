@@ -1,9 +1,11 @@
 # Copyright 1999 - 2026. WebPros International GmbH. All rights reserved.
 
 import typing
+from functools import partial
 
 from pleskdistup import actions as common_actions
 from pleskdistup.common import action, files, leapp_configs, packages, systemd, util
+from .common import get_adapted_repository
 
 
 class FixupImunify(action.ActiveAction):
@@ -19,7 +21,12 @@ class FixupImunify(action.ActiveAction):
     def _prepare_action(self) -> action.ActionResult:
         repofiles = self._find_imunify_repo_files()
 
-        leapp_configs.add_repositories_mapping(repofiles)
+        leapp_configs.add_repositories_mapping_json(repofiles,
+                                               do_adapt_repository=partial(get_adapted_repository, keep_id=False),
+                                               mapjson_path=leapp_configs.LEAPP_MAP_JSON_PATH,
+                                               distro="almalinux",
+                                               source_major_version="8",
+                                               target_major_version="9")
 
         # For some reason leapp replaces the libssh2 package on installation. It's fine in most cases,
         # but imunify packages require libssh2. So we should use PRESENT action to keep it.
@@ -46,19 +53,25 @@ class AdoptKolabRepositories(action.ActiveAction):
     def _prepare_action(self) -> action.ActionResult:
         repofiles = self._find_kolab_repo_files()
 
-        leapp_configs.add_repositories_mapping(
+        leapp_configs.add_repositories_mapping_json(
             repofiles,
             ignore=[
                 "kolab-16-source",
                 "kolab-16-testing-source",
                 "kolab-16-testing-candidate-source",
-            ]
+            ],
+            do_adapt_repository=partial(get_adapted_repository, keep_id=False),
+            mapjson_path=leapp_configs.LEAPP_MAP_JSON_PATH,
+            distro="almalinux",
+            source_major_version="8",
+            target_major_version="9",
         )
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
         for file in self._find_kolab_repo_files():
-            leapp_configs.adopt_repositories(file)
+            leapp_configs.adopt_repositories(file,
+                                            do_adapt_repository=partial(get_adapted_repository, keep_id=False))
 
         util.logged_check_call(["/usr/bin/dnf", "-y", "update"])
         return action.ActionResult()
@@ -84,6 +97,13 @@ class FetchPleskGPGKey(common_actions.FetchGPGKeyForLeapp):
     def __init__(self):
         self.name = "fetching Plesk GPG key"
         self.target_repository_files_regex = ["plesk*.repo"]
+        super().__init__()
+
+
+class FetchImunifyGPGKey(common_actions.FetchGPGKeyForLeapp):
+    def __init__(self):
+        self.name = "fetching Imunify360 GPG key"
+        self.target_repository_files_regex = ["imunify*.repo"]
         super().__init__()
 
 

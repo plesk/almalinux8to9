@@ -13,14 +13,14 @@ jobs:
         submodules: recursive
     - name: Prepare artifact store
       run: mkdir -p ./buck-out/gen
-    - name: Build cloudlinux7to8
+    - name: Build almalinux8to9
       id: build
       uses: SandakovMM/build-with-buck@v5
       with:
         command: build
-        target: :cloudlinux7to8
+        target: :almalinux8to9
     - name: Store result
       uses: actions/upload-artifact@v4
       with:
-        name: cloudlinux7to8
-        path: ./buck-out/gen/cloudlinux7to8
+        name: almalinux8to9
+        path: ./buck-out/gen/almalinux8to9

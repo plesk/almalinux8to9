@@ -1,4 +1,4 @@
-# Copyright 2025. WebPros International GmbH. All rights reserved.
+# Copyright 1999 - 2025. WebPros International GmbH. All rights reserved.
 # vim:ft=python:
 
 import os.path
