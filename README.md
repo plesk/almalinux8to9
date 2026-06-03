@@ -29,6 +29,7 @@ Do not use the script if any of the following is true:
 
 ## Requirements
 - Plesk version is not older than five releases back from the latest version
+- Webalizer web statistics absence. It's not supported in target OS and should be switched to another Plesk-supported stats tool
 - AlmaLinux 8.9 or later.
 - grub2 is installed
 - At least 5 GB of free disk space.
