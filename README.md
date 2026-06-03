@@ -29,6 +29,7 @@ Do not use the script if any of the following is true:
 
 ## Requirements
 - Plesk version is not older than five releases back from the latest version
+- PHP-7.1, 7.2, and 7.3 is not supported (for now), so conversion will be refused once one of them is installed
 - Webalizer web statistics absence. It's not supported in target OS and should be switched to another Plesk-supported stats tool
 - AlmaLinux 8.9 or later.
 - grub2 is installed
