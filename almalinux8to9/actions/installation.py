@@ -20,6 +20,9 @@ class LeappInstallation(action.ActiveAction):
         self.remove_logs_on_finish = remove_logs_on_finish
 
     def _prepare_action(self) -> action.ActionResult:
+        # it also removes previous converter leftovers: leapp-repository-deps-el[8,9], leapp-deps-el[8,9]
+        util.logged_check_call(["/usr/bin/dnf", "erase", "-y", "leapp-*"])
+
         if not rpm.is_package_installed("elevate-release"):
             util.logged_check_call(["/usr/bin/yum", "install", "-y", self.elevate_release_rpm_url])
 
