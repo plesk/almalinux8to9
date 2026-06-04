@@ -189,6 +189,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             ],
             "First plesk start": [
                 common_actions.StartPleskBasicServices(),
+                custom_actions.PostUpgradeFirewalldConfiguration(),
             ],
             "Remove conflicting packages": [
                 custom_actions.RemovingPleskConflictPackages(),
