@@ -36,10 +36,7 @@ class RemovingPleskConflictPackages(action.ActiveAction):
     def __init__(self) -> None:
         self.name = "remove plesk conflict packages"
         self.conflict_pkgs = [
-            "openssl11-libs",
-            "python36-PyYAML",
             "GeoIP",
-            "psa-mod_proxy",
         ]
 
     def _prepare_action(self) -> action.ActionResult:
