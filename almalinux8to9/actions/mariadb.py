@@ -92,17 +92,16 @@ class UpdateModernMariadb(action.ActiveAction):
         if len(repofiles) == 0:
             raise Exception("Mariadb installed from unknown repository. Please check the '{}' file is present".format("/etc/yum.repos.d/mariadb.repo"))
 
-        log.debug("Add MariaDB repository files '{}' mapping".format(repofiles[0]))
-        leapp_configs.add_repositories_mapping_json(repofiles,
-                                               ignore=[],
-                                               do_adapt_repository=partial(get_adapted_repository, keep_id=False),
-                                               mapjson_path=leapp_configs.LEAPP_MAP_JSON_PATH,
-                                               distro="almalinux",
-                                               source_major_version="8",
-                                               target_major_version="9")
+        log.debug("Add MariaDB repository files '{}' mapping into leapp vendor directory".format(repofiles[0]))
+        for repofile in repofiles:
+            leapp_configs.create_leapp_vendor_repository_adoption(
+                repofile,
+                do_adapt_repository=partial(get_adapted_repository, keep_id=False),
+                distro="almalinux", source_major_version="8", target_major_version="9",
+            )
 
         log.debug("Set repository mapping in the leapp configuration file")
-        leapp_configs.set_package_repository("mariadb", "alma-mariadb")
+        leapp_configs.set_package_repository("mariadb", "mariadb-main")
 
         _remove_mariadb_packages()
         return action.ActionResult()
@@ -114,7 +113,7 @@ class UpdateModernMariadb(action.ActiveAction):
 
         for repofile in repofiles:
             leapp_configs.adopt_repositories(repofile,
-                                            do_adapt_repository=partial(get_adapted_repository, keep_id=False))
+                                             do_adapt_repository=partial(get_adapted_repository, keep_id=True))
 
         repo = [repo for repo in rpm.extract_repodata(repofiles[0])][0]
 
