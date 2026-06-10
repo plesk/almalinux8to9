@@ -6,6 +6,7 @@ import os
 from functools import partial
 
 from pleskdistup.common import action, leapp_configs, files, log, mariadb, rpm, util
+from pleskdistup.actions.packages import RemovePackages
 from .common import get_adapted_repository
 
 
@@ -80,12 +81,18 @@ def _remove_mariadb_packages() -> None:
     rpm.remove_packages(rpm.filter_installed_packages(MARIADB_PACKAGES))
 
 
-class UpdateModernMariadb(action.ActiveAction):
+class UpdateModernMariadb(RemovePackages):
     def __init__(self) -> None:
-        self.name = "update modern mariadb"
+        super().__init__(MARIADB_PACKAGES,
+                         "/usr/local/psa/var/almalinux8to9/dist-upgrader-mmariadb.list",
+                         "update modern mariadb")
 
     def _is_required(self) -> bool:
-        return mariadb.is_mariadb_installed() and mariadb.get_installed_mariadb_version() > MARIADB_VERSION_ON_ALMA and not _is_governor_mariadb_installed()
+        return (
+            mariadb.is_mariadb_installed()
+            and mariadb.get_installed_mariadb_version() > MARIADB_VERSION_ON_ALMA
+            and not _is_governor_mariadb_installed()
+        )
 
     def _prepare_action(self) -> action.ActionResult:
         repofiles = _find_mariadb_repo_files()
@@ -103,8 +110,7 @@ class UpdateModernMariadb(action.ActiveAction):
         log.debug("Set repository mapping in the leapp configuration file")
         leapp_configs.set_package_repository("mariadb", "mariadb-main")
 
-        _remove_mariadb_packages()
-        return action.ActionResult()
+        return super()._prepare_action()
 
     def _post_action(self) -> action.ActionResult:
         repofiles = _find_mariadb_repo_files()
@@ -112,8 +118,9 @@ class UpdateModernMariadb(action.ActiveAction):
             return action.ActionResult()
 
         for repofile in repofiles:
-            leapp_configs.adopt_repositories(repofile,
-                                             do_adapt_repository=partial(get_adapted_repository, keep_id=True))
+            leapp_configs.adopt_repositories(
+                repofile,
+                do_adapt_repository=partial(get_adapted_repository, keep_id=True))
 
         repo = [repo for repo in rpm.extract_repodata(repofiles[0])][0]
 
@@ -121,10 +128,8 @@ class UpdateModernMariadb(action.ActiveAction):
         rpm.install_packages(packages, repository=repo.id, simulate=True)
         _remove_mariadb_packages()
         rpm.install_packages(packages, repository=repo.id)
-        return action.ActionResult()
 
-    def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult()
+        return super()._post_action()
 
     def estimate_prepare_time(self) -> int:
         return 30
@@ -133,16 +138,18 @@ class UpdateModernMariadb(action.ActiveAction):
         return 60
 
 
-class UpdateMariadbDatabase(action.ActiveAction):
+class UpdateMariadbDatabase(RemovePackages):
     def __init__(self) -> None:
-        self.name = "updating mariadb databases"
+        super().__init__(MARIADB_PACKAGES,
+                         "/usr/local/psa/var/almalinux8to9/dist-upgrader-smariadb.list",
+                         "updating mariadb databases")
 
     def _is_required(self) -> bool:
-        return mariadb.is_mariadb_installed() and not mariadb.get_installed_mariadb_version() > MARIADB_VERSION_ON_ALMA and not _is_governor_mariadb_installed()
-
-    def _prepare_action(self) -> action.ActionResult:
-        _remove_mariadb_packages()
-        return action.ActionResult()
+        return (
+            mariadb.is_mariadb_installed()
+            and not mariadb.get_installed_mariadb_version() > MARIADB_VERSION_ON_ALMA
+            and not _is_governor_mariadb_installed()
+        )
 
     def _post_action(self) -> action.ActionResult:
         # Leapp does not remove non-standard MariaDB-client package. But since we have updated
@@ -168,10 +175,7 @@ class UpdateMariadbDatabase(action.ActiveAction):
         # Also find a way to drop cookies, because it will ruin your day
         # We have to delete it once again, because leapp going to install it in scope of conversion process,
         # but without right configs
-        return action.ActionResult()
-
-    def _revert_action(self) -> action.ActionResult:
-        return action.ActionResult()
+        return super()._post_action()
 
     def estimate_post_time(self) -> int:
         return 2 * 60
