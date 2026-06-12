@@ -164,6 +164,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 common_actions.RestoreRoundcubeConfiguration(options.state_dir),
                 common_actions.RecreateAwstatsConfigurationFiles(),
                 common_actions.UninstallTuxcareEls(),
+                common_actions.UninstallExtension("tuxcare-php"),
                 common_actions.PreserveMariadbConfig(),
                 common_actions.SubstituteSshPermitRootLoginConfigured(),
                 custom_actions.UseSystemResolveForLeappContainer(),
