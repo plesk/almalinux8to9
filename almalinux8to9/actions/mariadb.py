@@ -94,6 +94,15 @@ class UpdateModernMariadb(RemovePackages):
             and not _is_governor_mariadb_installed()
         )
 
+    def _revert_repos(self) -> None:
+        repofiles = files.find_files_case_insensitive(
+            "/etc/yum.repos.d",
+            [f"{r}.alma8to9" for r in KNOWN_MARIADB_REPO_FILES])
+        if repofiles:
+            log.info(f"Repo *.alma8to9 conversion artifact(s) found: {','.join(repofiles)}")
+            for repofile in repofiles:
+                os.rename(repofile, f"{repofile[:-9]}")
+
     def _prepare_action(self) -> action.ActionResult:
         repofiles = _find_mariadb_repo_files()
         if len(repofiles) == 0:
@@ -106,6 +115,7 @@ class UpdateModernMariadb(RemovePackages):
                 do_adapt_repository=partial(get_adapted_repository, keep_id=False),
                 distro="almalinux", source_major_version="8", target_major_version="9",
             )
+            os.rename(repofile, f"{repofile}.alma8to9")
 
         log.debug("Set repository mapping in the leapp configuration file")
         leapp_configs.set_package_repository("mariadb", "mariadb-main")
@@ -113,6 +123,7 @@ class UpdateModernMariadb(RemovePackages):
         return super()._prepare_action()
 
     def _post_action(self) -> action.ActionResult:
+        self._revert_repos()
         repofiles = _find_mariadb_repo_files()
         if len(repofiles) == 0:
             return action.ActionResult()
@@ -125,11 +136,15 @@ class UpdateModernMariadb(RemovePackages):
         repo = [repo for repo in rpm.extract_repodata(repofiles[0])][0]
 
         packages = ["MariaDB-client", "MariaDB-server"]
-        rpm.install_packages(packages, repository=repo.id, simulate=True)
+        rpm.install_packages(packages, repository=repo.id, simulate=True, allow_replace=True)
         _remove_mariadb_packages()
-        rpm.install_packages(packages, repository=repo.id)
+        rpm.install_packages(packages, repository=repo.id, allow_replace=True)
 
         return super()._post_action()
+
+    def _revert_action(self) -> action.ActionResult:
+        self._revert_repos()
+        return super()._revert_action()
 
     def estimate_prepare_time(self) -> int:
         return 30
