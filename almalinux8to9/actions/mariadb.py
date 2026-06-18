@@ -5,8 +5,8 @@ import typing
 import os
 from functools import partial
 
-from pleskdistup.common import action, leapp_configs, files, log, mariadb, rpm, util
-from pleskdistup.actions.packages import RemovePackages
+from pleskdistup.common import action, leapp_configs, files, log, mariadb, packages, rpm, util
+from pleskdistup.actions.packages import RemoveReplacePackages
 from .common import get_adapted_repository
 
 
@@ -16,15 +16,15 @@ KNOWN_MARIADB_REPO_FILES = [
     "mariadb10.repo",
     "cl-mysql.repo"
 ]
-MARIADB_PACKAGES = [
-    "MariaDB-client",
-    "MariaDB-client-compat",
-    "MariaDB-compat",
-    "MariaDB-common",
-    "MariaDB-server",
-    "MariaDB-server-compat",
-    "MariaDB-shared"
-]
+MARIADB_PACKMAP: typing.Dict[str, str] = {
+    "MariaDB-client": '',
+    "MariaDB-client-compat": '',
+    "MariaDB-compat": '',
+    "MariaDB-common": '',
+    "MariaDB-server": '',
+    "MariaDB-server-compat": '',
+    "MariaDB-shared:": ''
+}
 
 
 def _find_mariadb_repo_files() -> typing.List[str]:
@@ -77,15 +77,12 @@ The MariaDB repository with id '{}' from the file '{}' is not accessible.
         return True
 
 
-def _remove_mariadb_packages() -> None:
-    rpm.remove_packages(rpm.filter_installed_packages(MARIADB_PACKAGES))
-
-
-class UpdateModernMariadb(RemovePackages):
+class UpdateModernMariadb(RemoveReplacePackages):
     def __init__(self) -> None:
-        super().__init__(MARIADB_PACKAGES,
-                         "/usr/local/psa/var/almalinux8to9/dist-upgrader-mmariadb.list",
-                         "update modern mariadb")
+        super().__init__(
+            dict(MARIADB_PACKMAP, **{"perl-DBD-MySQL": "perl-DBD-MariaDB"}),
+            "/usr/local/psa/var/almalinux8to9/dist-upgrader-mariadb.list",
+            "update modern MariaDB")
 
     def _is_required(self) -> bool:
         return (
@@ -126,7 +123,7 @@ class UpdateModernMariadb(RemovePackages):
 
         packages = ["MariaDB-client", "MariaDB-server"]
         rpm.install_packages(packages, repository=repo.id, simulate=True)
-        _remove_mariadb_packages()
+        rpm.remove_packages(rpm.filter_installed_packages([k for k in MARIADB_PACKMAP.keys()]))
         rpm.install_packages(packages, repository=repo.id)
 
         return super()._post_action()
@@ -138,9 +135,9 @@ class UpdateModernMariadb(RemovePackages):
         return 60
 
 
-class UpdateMariadbDatabase(RemovePackages):
+class UpdateMariadbDatabase(RemoveReplacePackages):
     def __init__(self) -> None:
-        super().__init__(MARIADB_PACKAGES,
+        super().__init__(MARIADB_PACKMAP,
                          "/usr/local/psa/var/almalinux8to9/dist-upgrader-smariadb.list",
                          "updating mariadb databases")
 
@@ -161,7 +158,7 @@ class UpdateMariadbDatabase(RemovePackages):
 
         packages = ["mariadb", "mariadb-server"]
         rpm.install_packages(packages, simulate=True)
-        _remove_mariadb_packages()
+        rpm.remove_packages(rpm.filter_installed_packages([k for k in MARIADB_PACKMAP.keys()]))
         rpm.install_packages(packages)
 
         # We should be sure mariadb is started, otherwise restore wouldn't work
