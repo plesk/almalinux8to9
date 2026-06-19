@@ -203,7 +203,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             "Repositories handling": [
                 custom_actions.AdoptRepositories(),
                 custom_actions.PostEnableRepos(["crb"]),
-                custom_actions.DisablePesEventsRemovePackages(["libidn"], "appstream"),
+                custom_actions.DisablePesEventsRemovePackages(["libidn"]),
             ],
             "Do convert": [
                 custom_actions.DisableBaseRepoUpdatesRepository(),

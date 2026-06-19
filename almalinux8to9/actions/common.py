@@ -134,12 +134,12 @@ def get_adapted_repository(
 
 class DisablePesEventsRemovePackages(action.ActiveAction):
     _list_of_packages_to_remove: typing.List[str]
-    _repo: typing.Optional[str]
+    _repos: typing.Optional[typing.List[str]]
 
-    def __init__(self, list_of_packages_to_remove: typing.List[str], repo: typing.Optional[str] = None):
+    def __init__(self, list_of_packages_to_remove: typing.List[str], repos: typing.Optional[typing.List[str]] = None):
         self.name = "disable PES events and remove related packages"
         self._list_of_packages_to_remove = list_of_packages_to_remove
-        self._repo = repo
+        self._repos = repos
 
     def _prepare_action(self) -> action.ActionResult:
         if os.path.exists(leapp_configs.LEAPP_PKGS_CONF_PATH):
@@ -148,7 +148,8 @@ class DisablePesEventsRemovePackages(action.ActiveAction):
             return action.ActionResult()
 
         for package in self._list_of_packages_to_remove:
-            leapp_configs.rm_package_from_pes_events(package, self._repo)
+            for r in self._repos if self._repos is not None else [None]:
+                leapp_configs.rm_package_from_pes_events(package, r)
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
