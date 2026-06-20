@@ -201,6 +201,10 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 custom_actions.AddMysqlConnector(),
             ],
             "Repositories handling": [
+                custom_actions.SetRPMCryptoPolicy(
+                    ["plesk-php56", "plesk-php70", "plesk-php74"],
+                    "LEGACY",
+                ),
                 custom_actions.AdoptRepositories(),
                 custom_actions.PostEnableRepos(["crb"]),
                 custom_actions.DisablePesEventsRemovePackages(["libidn"]),
