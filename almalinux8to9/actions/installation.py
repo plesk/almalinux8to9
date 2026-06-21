@@ -3,7 +3,7 @@ import os
 import shutil
 import typing
 
-from pleskdistup.common import action, rpm, util
+from pleskdistup.common import action, files, rpm, util
 
 LEAPP_ALMALINUX_RPM_URL = "https://repo.almalinux.org/elevate/elevate-release-latest-el8.noarch.rpm"
 
@@ -43,6 +43,7 @@ class LeappInstallation(action.ActiveAction):
                 self.pkgs_to_install + ["elevate-release", "leapp-upgrade-el8toel9"]
             )
         )
+        util.logged_check_call(["/usr/bin/dnf", "erase", "-y", "leapp-*"])
 
         leapp_related_files = [
             "/root/tmp_leapp_py3/leapp",
@@ -72,3 +73,33 @@ class LeappInstallation(action.ActiveAction):
 
     def estimate_prepare_time(self) -> int:
         return 40
+
+
+class RemoveLeappReposDisablement(action.ActiveAction):
+    def __init__(self):
+        self.name = "remove leapp installation yum.conf inhibitors"
+
+    def is_required(self) -> bool:
+        return bool(rpm.yum_conf_get_exclude_list())
+
+    def _prepare_action(self) -> action.ActionResult:
+        files.backup_file(rpm.YUM_CONF_PATH)
+        rpm.yum_conf_rm_leapp_disablement()
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        # We need to get rid of leapp repo entries in 'exclude=' in order
+        # to enable leapp packages installations in the next OS conversion.
+        # These are possibly added during leapp upgrade step to prevent
+        # unnecessary leapp upgrades
+        files.backup_file(rpm.YUM_CONF_PATH)
+        rpm.yum_conf_rm_leapp_disablement()
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        files.restore_file_from_backup(rpm.YUM_CONF_PATH)
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 1
+
