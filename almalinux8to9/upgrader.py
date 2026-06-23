@@ -121,6 +121,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 common_actions.AddInProgressSshLoginMessage(new_os),
             ],
             "Leapp installation": [
+                custom_actions.RemoveLeappReposDisablement(),
                 custom_actions.LeappInstallation(
                     custom_actions.LEAPP_ALMALINUX_RPM_URL,
                     [
