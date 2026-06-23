@@ -539,3 +539,42 @@ class DisableBaseRepoUpdatesRepository(action.ActiveAction):
     def _revert_action(self) -> action.ActionResult:
         return action.ActionResult()
 
+
+class SetRPMCryptoPolicy(action.ActiveAction):
+    policy: str
+    due_to_packages: typing.List[str]
+
+    def __init__(self,
+                 all_possible_packages: typing.List[str],
+                 policy: str) -> None:
+        self.policy = policy
+        self.due_to_packages = packages.filter_installed_packages(all_possible_packages)
+
+        self.name = f'set RPM crypto policy to "{self.policy}" due to installed packages: {", ".join(self.due_to_packages)}'
+        self.description = f'''We need to switch to {self.policy} crypto policy due to following legacy packages'
+conversion support. These packages will prevent the conversion if policy is not set to old mode.
+Consider removing them using plesk installer if they are not utilized by plesk or your domains.
+\t {", ".join(self.due_to_packages)}
+'''
+
+    def is_required(self) -> bool:
+        return bool(self.due_to_packages)
+
+    def _prepare_action(self) -> action.ActionResult:
+        util.logged_check_call(
+            ["/usr/bin/update-crypto-policies", "--set", f"{self.policy}"]
+        )
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        util.logged_check_call(
+            ["/usr/bin/update-crypto-policies", "--set", "DEFAULT"]
+        )
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        util.logged_check_call(
+            ["/usr/bin/update-crypto-policies", "--set", "DEFAULT"]
+        )
+        return action.ActionResult()
+
