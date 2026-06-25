@@ -231,13 +231,6 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             ]
         }
 
-        if packages.is_package_installed("imunify-antivirus"):
-            actions_map = util.merge_dicts_of_lists(actions_map, {
-                "Remove conflicting packages": [
-                    common_actions.TemporaryRemovePackage("alt-php-hyperscan"),
-                ]
-            })
-
         if self.fix_deprecated_if_scripts:
             actions_map = util.merge_dicts_of_lists(actions_map, {
                 "Prepare configurations": [
