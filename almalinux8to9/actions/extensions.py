@@ -104,7 +104,7 @@ class FetchImunifyGPGKey(common_actions.FetchGPGKeyForLeapp):
     def __init__(self):
         self.name = "fetching Imunify360 GPG key"
         self.target_repository_files_regex = ["imunify*.repo"]
-        super().__init__()
+        super().__init__(is_hardfail=packages.is_package_installed("imunify-antivirus"))
 
 
 class AdoptSOGo(action.ActiveAction):
