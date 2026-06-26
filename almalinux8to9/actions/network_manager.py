@@ -13,6 +13,7 @@ from pleskdistup.common import action, util
 NM_SCRIPTS_DIR = "/opt/network-scripts"
 IF_SBIN_SCRIPTS_PATTERN = "/sbin/if*-local"
 NM_IF_SCRIPTS_PATTERN = "/opt/network-scripts/if*-local"
+NW_SCRIPTS_DEVICE_GLOB = "/etc/sysconfig/network-scripts/ifcfg-*"
 
 NM_IFLOCAL_SCRIPT_PATH = "/etc/NetworkManager/dispatcher.d/20-if-local"
 NM_IFLOCAL_SCRIPT = """#!/bin/bash
@@ -91,3 +92,31 @@ class FixDeprecatedIFScripts(action.ActiveAction):
 
     def estimate_post_time(self) -> int:
         return 1
+
+
+class CheckNMUnreachableDevices(action.CheckAction):
+    def __init__(self) -> None:
+        self.name = "check for network-scripts ifcfg-* devices which can't be controlled via NetworkManager"
+        self.description = """There are network-scripts device definitions
+which are explicitly disabled for NetworkManager control: {}.
+Make sure they are NM_CONTROLLED and behave fine with NetworkManager operations.
+"""
+
+    def _check_file(self, fpath: str) -> bool:
+        with open(fpath) as f:
+            for ln in f:
+                pp = ln.partition("=")
+                if not pp[1]:
+                    continue
+                if pp[0].strip() == "NM_CONTROLLED" and \
+                   pp[2].strip().lower() == "no":
+                    return False
+        return True
+
+    def _do_check(self) -> bool:
+        devs = glob.glob(NW_SCRIPTS_DEVICE_GLOB)
+        ll = [d for d in devs if not self._check_file(d)]
+        if not ll:
+            return True
+        self.description = self.description.format(", ".join(ll))
+        return False

@@ -285,6 +285,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                     if os.path.basename(file) != "AlmaLinux-Media.repo"
                  ]),
             common_actions.AssertIPRepositoryNotPresent(),
+            custom_actions.CheckNMUnreachableDevices(),
             # custom_actions.AssertCentosEOLedRepositoriesNotPresent(),
             common_actions.AssertNoRepositoryDuplicates(),
             common_actions.AssertPackageIsNotInstalled("plesk-php71",
