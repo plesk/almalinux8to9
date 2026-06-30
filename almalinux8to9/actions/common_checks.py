@@ -1,12 +1,9 @@
 # Copyright 1999 - 2026. WebPros International GmbH. All rights reserved.
 
-import collections
 import os
-import shutil
 import subprocess
-import typing
 
-from pleskdistup.common import action, dist, files, log, version
+from pleskdistup.common import action, dist, log, version
 
 
 class AssertDistroIsAlmaLinux9(action.CheckAction):
