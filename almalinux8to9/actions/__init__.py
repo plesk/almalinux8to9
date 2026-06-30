@@ -11,3 +11,4 @@ from .packages import *
 from .perl import *
 from .php import *
 from .postgres import *
+from .stattools import *
