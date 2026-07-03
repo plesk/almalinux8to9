@@ -176,6 +176,9 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 common_actions.HandlePleskFirewallService(),
             ],
             "Handle packages and services": [
+                common_actions.RemovePleskComponents(
+                    ["webalizer"], options.state_dir, "rm webalizer component",
+                ),
                 custom_actions.FixOsVendorPhpFpmConfiguration(),
                 common_actions.RebundleRubyApplications(),
                 custom_actions.ReinstallPhpmyadminPleskComponents(),
