@@ -200,7 +200,6 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 custom_actions.RemovePleskOutdatedPackages(),
             ],
             "Update databases": [
-                custom_actions.UpdateMariadbDatabase(),
                 custom_actions.UpdateModernMariadb(),
                 custom_actions.AddMysqlConnector(),
             ],

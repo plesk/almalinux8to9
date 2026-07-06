@@ -2,10 +2,9 @@
 
 import subprocess
 import typing
-import os
 from functools import partial
 
-from pleskdistup.common import action, leapp_configs, files, log, mariadb, packages, rpm, util
+from pleskdistup.common import action, leapp_configs, files, log, mariadb, rpm
 from pleskdistup.actions.packages import RemoveReplacePackages
 from .common import get_adapted_repository
 
@@ -80,7 +79,7 @@ The MariaDB repository with id '{}' from the file '{}' is not accessible.
 class UpdateModernMariadb(RemoveReplacePackages):
     def __init__(self) -> None:
         super().__init__(
-            dict(MARIADB_PACKMAP, **{"perl-DBD-MySQL": "perl-DBD-MariaDB"}),
+            {"perl-DBD-MySQL": "perl-DBD-MariaDB"},
             "/usr/local/psa/var/almalinux8to9/dist-upgrader-mariadb.list",
             "update modern MariaDB")
 
@@ -94,7 +93,9 @@ class UpdateModernMariadb(RemoveReplacePackages):
     def _prepare_action(self) -> action.ActionResult:
         repofiles = _find_mariadb_repo_files()
         if len(repofiles) == 0:
-            raise Exception("Mariadb installed from unknown repository. Please check the '{}' file is present".format("/etc/yum.repos.d/mariadb.repo"))
+            raise Exception("Mariadb installed from unknown repository."
+                            "Please check the '{}' file is present".format(
+                                "/etc/yum.repos.d/mariadb.repo"))
 
         log.debug("Add MariaDB repository files '{}' mapping into leapp vendor directory".format(repofiles[0]))
         for repofile in repofiles:
@@ -103,9 +104,6 @@ class UpdateModernMariadb(RemoveReplacePackages):
                 do_adapt_repository=partial(get_adapted_repository, keep_id=False),
                 distro="almalinux", source_major_version="8", target_major_version="9",
             )
-
-        log.debug("Set repository mapping in the leapp configuration file")
-        leapp_configs.set_package_repository("mariadb", "mariadb-main")
 
         return super()._prepare_action()
 
@@ -119,13 +117,6 @@ class UpdateModernMariadb(RemoveReplacePackages):
                 repofile,
                 do_adapt_repository=partial(get_adapted_repository, keep_id=True))
 
-        repo = [repo for repo in rpm.extract_repodata(repofiles[0])][0]
-
-        packages = ["MariaDB-client", "MariaDB-server"]
-        rpm.install_packages(packages, repository=repo.id, simulate=True)
-        rpm.remove_packages(rpm.filter_installed_packages([k for k in MARIADB_PACKMAP.keys()]))
-        rpm.install_packages(packages, repository=repo.id)
-
         return super()._post_action()
 
     def estimate_prepare_time(self) -> int:
@@ -133,49 +124,6 @@ class UpdateModernMariadb(RemoveReplacePackages):
 
     def estimate_post_time(self) -> int:
         return 60
-
-
-class UpdateMariadbDatabase(RemoveReplacePackages):
-    def __init__(self) -> None:
-        super().__init__(MARIADB_PACKMAP,
-                         "/usr/local/psa/var/almalinux8to9/dist-upgrader-smariadb.list",
-                         "updating mariadb databases")
-
-    def _is_required(self) -> bool:
-        return (
-            mariadb.is_mariadb_installed()
-            and not mariadb.get_installed_mariadb_version() > MARIADB_VERSION_ON_ALMA
-            and not _is_governor_mariadb_installed()
-        )
-
-    def _post_action(self) -> action.ActionResult:
-        # Leapp does not remove non-standard MariaDB-client package. But since we have updated
-        # mariadb to 10.3.35 old client is not relevant anymore. So we have to switch to new client.
-        # On the other hand, we want to be sure AlmaLinux mariadb-server installed as well
-        for repofile in _find_mariadb_repo_files():
-            files.backup_file(repofile)
-            os.unlink(repofile)
-
-        packages = ["mariadb", "mariadb-server"]
-        rpm.install_packages(packages, simulate=True)
-        rpm.remove_packages(rpm.filter_installed_packages([k for k in MARIADB_PACKMAP.keys()]))
-        rpm.install_packages(packages)
-
-        # We should be sure mariadb is started, otherwise restore wouldn't work
-        util.logged_check_call(["/usr/bin/systemctl", "start", "mariadb"])
-
-        # it could be missing due to implicit/automatic conversion support
-        if os.path.isfile("/usr/bin/mysql_upgrade"):
-            with open('/etc/psa/.psa.shadow', 'r') as shadowfile:
-                shadowdata = shadowfile.readline().rstrip()
-                util.logged_check_call(["/usr/bin/mysql_upgrade", "-uadmin", "-p" + shadowdata])
-        # Also find a way to drop cookies, because it will ruin your day
-        # We have to delete it once again, because leapp going to install it in scope of conversion process,
-        # but without right configs
-        return super()._post_action()
-
-    def estimate_post_time(self) -> int:
-        return 2 * 60
 
 
 class AddMysqlConnector(action.ActiveAction):
