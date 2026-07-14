@@ -5,18 +5,19 @@ import subprocess
 import typing
 from functools import partial
 
-from pleskdistup.common import action, files, leapp_configs, log, postgres, systemd, util
+from pleskdistup.common import action, files, leapp_configs, log, postgres, \
+    rpm, systemd, util
 from .common import get_adapted_repository
 
-_ALMA8_POSTGRES_VERSION = 10
+_ALMA8_POSTGRES_VERSION = 14
 
 
 class AssertOutdatedPostgresNotInstalled(action.CheckAction):
     def __init__(self) -> None:
-        self.name = "checking Postgres version 10 or later is installed"
-        self.description = '''PostgreSQL version is less then 10. This means the database should be upgraded.
+        self.name = "checking Postgres version 14 or later is installed"
+        self.description = '''PostgreSQL version is less then 14. This means the database should be upgraded.
 \tIt might lead to data loss. Please make backup of your database and call the script with --upgrade-postgres.
-\tOr update PostgreSQL to version 10 and upgrade your databases.'''
+\tOr update PostgreSQL to version 14 and upgrade your databases.'''
 
     def _do_check(self) -> bool:
         return not postgres.is_postgres_installed() or not postgres.is_database_initialized() or not postgres.is_database_major_version_lower(_ALMA8_POSTGRES_VERSION)
@@ -79,25 +80,31 @@ class PostgresDatabasesUpdate(action.ActiveAction):
         return postgres.is_postgres_installed() and postgres.is_database_initialized() and postgres.is_database_major_version_lower(_ALMA8_POSTGRES_VERSION)
 
     def _prepare_action(self) -> action.ActionResult:
+        rpm.convert_repos_if(
+            '/etc/leapp/files/vendors.d/postgresql.repo',
+            lambda repo: repo.id == "el9-pgdg11" or repo.id == "el9-pgdg12" or repo.id == "el9-pgdg13",
+            lambda repo: None,
+        )
         util.logged_check_call(['systemctl', 'stop', self.service_name])
         util.logged_check_call(['systemctl', 'disable', self.service_name])
         return action.ActionResult()
 
     def _upgrade_database(self) -> None:
-        util.logged_check_call(['dnf', 'install', '-y', 'postgresql-upgrade'])
-
-        util.logged_check_call(['postgresql-setup', '--upgrade'])
+        if postgres.is_database_major_version_lower(13):
+            util.logged_check_call(['dnf', 'install', '-y', 'postgresql-upgrade'])
+            util.logged_check_call(['postgresql-setup', '--upgrade'])
 
         old_config_path = os.path.join(postgres.get_saved_data_path(), 'pg_hba.conf')
         new_config_path = os.path.join(postgres.get_data_path(), 'pg_hba.conf')
 
-        plesk_customizations = []
-        with open(old_config_path, 'r') as old_config:
-            plesk_customizations = [line for line in old_config.readlines() if '#Added by Plesk' in line]
-
-        files.push_front_strings(new_config_path, plesk_customizations)
+        if os.path.isfile(old_config_path):
+            plesk_customizations = []
+            with open(old_config_path, 'r') as old_config:
+                plesk_customizations = [line for line in old_config.readlines() if '#Added by Plesk' in line]
+            files.push_front_strings(new_config_path, plesk_customizations)
 
         util.logged_check_call(['dnf', 'remove', '-y', 'postgresql-upgrade'])
+        util.logged_check_call(['chown', '-R', 'postgres:postgres', postgres.get_data_path()])
 
     def _enable_postgresql(self) -> None:
         util.logged_check_call(['systemctl', 'enable', self.service_name])
