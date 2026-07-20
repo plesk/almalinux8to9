@@ -145,6 +145,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             ],
             "Prepare configurations": [
                 common_actions.RevertChangesInGrub(),
+                custom_actions.RemoveOldPostgresRepoDefs(custom_actions.LEAPP_VENDORS_POSTGRES_REPO),
                 custom_actions.PrepareLeappConfigurationBackup(),
                 custom_actions.RemoveOldMigratorThirdparty(),
                 custom_actions.FetchKernelCareGPGKey(),

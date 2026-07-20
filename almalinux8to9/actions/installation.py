@@ -6,6 +6,7 @@ import typing
 from pleskdistup.common import action, files, rpm, util
 
 LEAPP_ALMALINUX_RPM_URL = "https://repo.almalinux.org/elevate/elevate-release-latest-el8.noarch.rpm"
+LEAPP_VENDORS_POSTGRES_REPO: str = '/etc/leapp/files/vendors.d/postgresql.repo'
 
 
 class LeappInstallation(action.ActiveAction):
