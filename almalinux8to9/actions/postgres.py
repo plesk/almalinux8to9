@@ -5,21 +5,22 @@ import subprocess
 import typing
 from functools import partial
 
-from pleskdistup.common import action, files, leapp_configs, log, postgres, systemd, util
+from pleskdistup.common import action, files, leapp_configs, log, postgres, \
+    rpm, systemd, util
 from .common import get_adapted_repository
 
-_ALMA8_POSTGRES_VERSION = 10
+_ALMA9_POSTGRES_VERSION = 13
 
 
 class AssertOutdatedPostgresNotInstalled(action.CheckAction):
     def __init__(self) -> None:
-        self.name = "checking Postgres version 10 or later is installed"
-        self.description = '''PostgreSQL version is less then 10. This means the database should be upgraded.
+        self.name = f"checking Postgres version {_ALMA9_POSTGRES_VERSION} or later is installed"
+        self.description = f'''PostgreSQL version is less then {_ALMA9_POSTGRES_VERSION} . This means the database should be upgraded.
 \tIt might lead to data loss. Please make backup of your database and call the script with --upgrade-postgres.
-\tOr update PostgreSQL to version 10 and upgrade your databases.'''
+\tOr update PostgreSQL to version {_ALMA9_POSTGRES_VERSION} and upgrade your databases.'''
 
     def _do_check(self) -> bool:
-        return not postgres.is_postgres_installed() or not postgres.is_database_initialized() or not postgres.is_database_major_version_lower(_ALMA8_POSTGRES_VERSION)
+        return not postgres.is_postgres_installed() or not postgres.is_database_initialized() or not postgres.is_database_major_version_lower(_ALMA9_POSTGRES_VERSION)
 
 
 class AssertPostgresLocaleMatchesSystemOne(action.CheckAction):
@@ -68,6 +69,36 @@ class AssertPostgresLocaleMatchesSystemOne(action.CheckAction):
             util.logged_check_call(['systemctl', 'reload-or-try-restart', self.service_name])
 
 
+class RemoveOldPostgresRepoDefs(action.ActiveAction):
+    repo_file: str
+
+    def __init__(self, repo_file: str) -> None:
+        self.name = "remove old postgresql (11, 12, 13) repo references in LEapp"
+        self.repo_file = repo_file
+
+    def _is_required(self) -> bool:
+        return postgres.is_postgres_installed()
+
+    def _prepare_action(self) -> action.ActionResult:
+        files.backup_file(self.repo_file)
+        rpm.convert_repos_if(
+            self.repo_file,
+            lambda repo: repo.id == "el9-pgdg11" or repo.id == "el9-pgdg12" or repo.id == "el9-pgdg13",
+            lambda repo: None,
+        )
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        files.restore_file_from_backup(self.repo_file)
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 1
+
+
 class PostgresDatabasesUpdate(action.ActiveAction):
     service_name: str
 
@@ -76,7 +107,8 @@ class PostgresDatabasesUpdate(action.ActiveAction):
         self.service_name = 'postgresql'
 
     def _is_required(self) -> bool:
-        return postgres.is_postgres_installed() and postgres.is_database_initialized() and postgres.is_database_major_version_lower(_ALMA8_POSTGRES_VERSION)
+        return postgres.is_postgres_installed() and postgres.is_database_initialized() and \
+            postgres.is_database_major_version_lower(_ALMA9_POSTGRES_VERSION)
 
     def _prepare_action(self) -> action.ActionResult:
         util.logged_check_call(['systemctl', 'stop', self.service_name])
@@ -91,13 +123,14 @@ class PostgresDatabasesUpdate(action.ActiveAction):
         old_config_path = os.path.join(postgres.get_saved_data_path(), 'pg_hba.conf')
         new_config_path = os.path.join(postgres.get_data_path(), 'pg_hba.conf')
 
-        plesk_customizations = []
-        with open(old_config_path, 'r') as old_config:
-            plesk_customizations = [line for line in old_config.readlines() if '#Added by Plesk' in line]
-
-        files.push_front_strings(new_config_path, plesk_customizations)
+        if os.path.isfile(old_config_path):
+            plesk_customizations = []
+            with open(old_config_path, 'r') as old_config:
+                plesk_customizations = [line for line in old_config.readlines() if '#Added by Plesk' in line]
+            files.push_front_strings(new_config_path, plesk_customizations)
 
         util.logged_check_call(['dnf', 'remove', '-y', 'postgresql-upgrade'])
+        util.logged_check_call(['chown', '-R', 'postgres:postgres', postgres.get_data_path()])
 
     def _enable_postgresql(self) -> None:
         util.logged_check_call(['systemctl', 'enable', self.service_name])
@@ -127,7 +160,7 @@ class PostgresReinstallModernPackage(action.ActiveAction):
         return [int(dataset) for dataset in os.listdir(postgres.get_pgsql_root_path()) if dataset.isnumeric()]
 
     def _is_required(self) -> bool:
-        return postgres.is_postgres_installed() and any([major_version >= _ALMA8_POSTGRES_VERSION for major_version in self._get_versions()])
+        return postgres.is_postgres_installed() and any([major_version >= _ALMA9_POSTGRES_VERSION for major_version in self._get_versions()])
 
     def _is_service_active(self, service: str) -> bool:
         res = subprocess.run(['/usr/bin/systemctl', 'is-active', service])
@@ -161,7 +194,7 @@ class PostgresReinstallModernPackage(action.ActiveAction):
 
     def _post_action(self) -> action.ActionResult:
         for major_version in self._get_versions():
-            if major_version > _ALMA8_POSTGRES_VERSION:
+            if major_version > _ALMA9_POSTGRES_VERSION:
                 util.logged_check_call(['/usr/bin/dnf', '-q', '-y', 'module', 'disable', 'postgresql'])
                 util.logged_check_call(['/usr/bin/dnf', '-y', 'update'])
                 util.logged_check_call(['/usr/bin/dnf', 'install', '-y', f'postgresql{major_version}', f'postgresql{major_version}-server'])
