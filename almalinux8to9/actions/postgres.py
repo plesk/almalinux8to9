@@ -10,6 +10,14 @@ from pleskdistup.common import action, files, leapp_configs, log, postgres, \
 from .common import get_adapted_repository
 
 _ALMA9_POSTGRES_VERSION = 13
+_POSTGRES_REPO_FILE = "/etc/yum.repos.d/pgdg-redhat-all.repo"
+
+
+def _is_modern_postgres_installed() -> bool:
+    return (
+        postgres.is_postgres_installed()
+        and postgres.get_postgres_major_version() >= _ALMA9_POSTGRES_VERSION
+    )
 
 
 class AssertOutdatedPostgresNotInstalled(action.CheckAction):
@@ -149,6 +157,20 @@ class PostgresDatabasesUpdate(action.ActiveAction):
         return 3 * 60
 
 
+class AssertModernPostgresRepositoryFilePresent(action.CheckAction):
+    def __init__(self):
+        self.name = "checking the modern postgresql repository file is present"
+        self.description = f"""A modern PostgreSQL is installed, but its repository file {_POSTGRES_REPO_FILE!r} is missing.
+\tWithout it the conversion cannot reinstall PostgreSQL on AlmaLinux 9 and the packages would be removed silently.
+\tPlease either place the PostgreSQL repository file at {_POSTGRES_REPO_FILE}, or remove PostgreSQL before the conversion.
+"""
+
+    def _do_check(self) -> bool:
+        if not _is_modern_postgres_installed():
+            return True
+        return os.path.exists(_POSTGRES_REPO_FILE)
+
+
 class PostgresReinstallModernPackage(action.ActiveAction):
     # Leapp is going to remove PostgreSQL package from the system during conversion process.
     # So during this action we shouldn't use any PostgreSQL related commands. Luckily data will not be removed
@@ -160,7 +182,7 @@ class PostgresReinstallModernPackage(action.ActiveAction):
         return [int(dataset) for dataset in os.listdir(postgres.get_pgsql_root_path()) if dataset.isnumeric()]
 
     def _is_required(self) -> bool:
-        return postgres.is_postgres_installed() and any([major_version >= _ALMA9_POSTGRES_VERSION for major_version in self._get_versions()])
+        return _is_modern_postgres_installed()
 
     def _is_service_active(self, service: str) -> bool:
         res = subprocess.run(['/usr/bin/systemctl', 'is-active', service])
@@ -175,7 +197,7 @@ class PostgresReinstallModernPackage(action.ActiveAction):
         return f'postgresql-{major_version}'
 
     def _prepare_action(self) -> action.ActionResult:
-        leapp_configs.add_repositories_mapping_json(["/etc/yum.repos.d/pgdg-redhat-all.repo"],
+        leapp_configs.add_repositories_mapping_json([_POSTGRES_REPO_FILE],
                                                do_adapt_repository=partial(get_adapted_repository, keep_id=False),
                                                skip_disabled=True,
                                                mapjson_path=leapp_configs.LEAPP_MAP_JSON_PATH,
