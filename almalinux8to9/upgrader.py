@@ -270,10 +270,15 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
 
         FIRST_SUPPORTED_BY_ALMA_8_PHP_VERSION = "5.6"
         ALMALINUX9_AMAVIS_REQUIRED_RAM = int(1.5 * 1024 * 1024 * 1024)
+        # From our experience it's better to have at least 5GB as the required minimum space to store packages,
+        # however when more space is required we should check exactly what was requested.
+        # Leapp_ovl_size in Mbs so we have to multiply
+        REQUIRED_MINUMUM_SPACE_FOR_OVERLAY = max(5 * 1024 * 1024 * 1024, self.leapp_ovl_size * 1024 * 1024)
+
         checks = [
             common_actions.AssertPleskVersionIsAvailable(),
             common_actions.AssertPleskInstallerNotInProgress(),
-            common_actions.AssertAvailableSpaceForLocation("/var/lib", 5 * 1024 * 1024 * 1024),  # 5GB required minimum space to store packages
+            common_actions.AssertAvailableSpaceForLocation("/var/lib", REQUIRED_MINUMUM_SPACE_FOR_OVERLAY),
             common_actions.AssertAvailableSpaceForLocation("/boot", 100 * 1024 * 1024),  # 100M required minimum space to store bootloader
             common_actions.AssertMinPhpVersionInstalled(FIRST_SUPPORTED_BY_ALMA_8_PHP_VERSION),
             common_actions.AssertMinPhpVersionUsedByWebsites(FIRST_SUPPORTED_BY_ALMA_8_PHP_VERSION),
