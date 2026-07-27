@@ -301,6 +301,10 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                                                        "QMail is not supported on AlmaLinux 9 - consider switching to Postfix before conversion"),
             custom_actions.AssertStatsToolNotUsed('webalizer'),
             custom_actions.AssertMariadbRepoAvailable(),
+            common_actions.AssertMariadbRepoEnabled(
+                custom_actions.MARIADB_VERSION_ON_ALMA,
+                custom_actions.KNOWN_MARIADB_REPO_FILES,
+            ),
             custom_actions.AssertModernPostgresRepositoryFilePresent(),
             common_actions.AssertNotInContainer(),
             custom_actions.AssertPackagesUpToDate(),
