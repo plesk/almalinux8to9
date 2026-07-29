@@ -20,6 +20,10 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
 
     _pre_reboot_delay = 45
 
+    _elevate_almalinux_rpm_url: str = "https://repo.almalinux.org/elevate/elevate-release-latest-el8.noarch.rpm"
+    _leapp_vendors_postgres_repo: str = '/etc/leapp/files/vendors.d/postgresql.repo'
+
+
     def __init__(self):
         super().__init__()
 
@@ -121,9 +125,9 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 common_actions.AddInProgressSshLoginMessage(new_os),
             ],
             "Leapp installation": [
-                custom_actions.RemoveLeappReposDisablement(),
-                custom_actions.LeappInstallation(
-                    custom_actions.LEAPP_ALMALINUX_RPM_URL,
+                common_actions.RemoveLeappReposDisablement(),
+                common_actions.LeappInstallation(
+                    self._elevate_almalinux_rpm_url,
                     [
                         "leapp-0.20.0-1.el8_10",
                         "leapp-data-almalinux-0.10-9.el8.20250729",
@@ -145,7 +149,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             ],
             "Prepare configurations": [
                 common_actions.RevertChangesInGrub(),
-                custom_actions.RemoveOldPostgresRepoDefs(custom_actions.LEAPP_VENDORS_POSTGRES_REPO),
+                custom_actions.RemoveOldPostgresRepoDefs(self._leapp_vendors_postgres_repo),
                 custom_actions.PrepareLeappConfigurationBackup(),
                 custom_actions.RemoveOldMigratorThirdparty(),
                 custom_actions.FetchKernelCareGPGKey(),

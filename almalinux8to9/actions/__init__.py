@@ -4,7 +4,6 @@ from .common import *
 from .configure import *
 from .convert import *
 from .extensions import *
-from .installation import *
 from .mariadb import *
 from .network_manager import *
 from .packages import *
