@@ -22,6 +22,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
 
     _elevate_almalinux_rpm_url: str = "https://repo.almalinux.org/elevate/elevate-release-latest-el8.noarch.rpm"
     _leapp_vendors_postgres_repo: str = '/etc/leapp/files/vendors.d/postgresql.repo'
+    _sha1_only_php_packages: typing.List[str] = ["plesk-php56", "plesk-php70", "plesk-php74", "plesk-php80"]
 
 
     def __init__(self):
@@ -34,6 +35,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
         self.amavis_upgrade_allowed = False
         self.leapp_ovl_size = 4096
         self.allow_raid_devices = False
+        self.rm_sha1_plesk_packages = False
         self.remove_leapp_logs = False
         self.allow_old_script_version = False
 
@@ -209,10 +211,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 custom_actions.AddMysqlConnector(),
             ],
             "Repositories handling": [
-                custom_actions.SetRPMCryptoPolicy(
-                    ["plesk-php56", "plesk-php70", "plesk-php74"],
-                    "LEGACY",
-                ),
+                custom_actions.SetRPMCryptoPolicy(self._sha1_only_php_packages, "LEGACY"),
                 custom_actions.AdoptRepositories(),
                 custom_actions.PostEnableRepos(["crb"]),
                 custom_actions.DisablePesEventsRemovePackages(["libidn"]),
@@ -242,6 +241,13 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             actions_map = util.merge_dicts_of_lists(actions_map, {
                 "Prepare configurations": [
                     custom_actions.FixDeprecatedIFScripts(),
+                ]
+            })
+
+        if self.rm_sha1_plesk_packages:
+            actions_map = util.merge_dicts_of_lists(actions_map, {
+                "Handle packages and services": [
+                    custom_actions.RemovePleskSHA1Packages(),
                 ]
             })
 
@@ -349,9 +355,11 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             checks.append(custom_actions.AssertThereIsNoUnknownPerlCpanModules())
         if not self.disable_spamassasin_plugins:
             checks.append(common_actions.AssertSpamassassinAdditionalPluginsDisabled())
-
         if not self.allow_old_script_version and almalinux8to9.config.version:
             checks.append(common_actions.AssertScriptVersionUpToDate("https://github.com/plesk/almalinux8to9", "almalinux8to9", version.DistupgradeToolVersion(almalinux8to9.config.version)))
+        if not any(packages.is_package_installed(name) for name in self._sha1_only_php_packages):
+            checks.append(
+                custom_actions.AssertNoOldRPMSignatures(not self.rm_sha1_plesk_packages))
 
         return checks
 
@@ -412,6 +420,10 @@ the log file.
                             help="Don't remove leapp logs after the conversion. By default, the logs are removed after the conversion.")
         parser.add_argument("--allow-old-script-version", action="store_true", dest="allow_old_script_version", default=False,
                             help="Allow to run the script with an old version. By default, the script checks for a new version on GitHub and does not allow to run with an old one.")
+        parser.add_argument(
+            "--rm-sha1-plesk-packages", action="store_true",
+            help="remove SHA1 signed old Plesk packages before conversion."
+        )
         parser.set_defaults(remove_leapp_logs=False)
         options = parser.parse_args(args)
 
@@ -421,6 +433,7 @@ the log file.
         self.amavis_upgrade_allowed = options.amavis_upgrade_allowed
         self.leapp_ovl_size = options.leapp_ovl_size
         self.allow_raid_devices = options.allow_raid_devices
+        self.rm_sha1_plesk_packages = options.rm_sha1_plesk_packages
         self.remove_leapp_logs = options.remove_leapp_logs
         self.allow_old_script_version = options.allow_old_script_version
         self.fix_deprecated_if_scripts = options.fix_deprecated_if_scripts

@@ -2,8 +2,9 @@
 
 import os
 import subprocess
+import typing
 
-from pleskdistup.common import action, dist, log, version
+from pleskdistup.common import action, dist, log, rpm, version
 
 
 class AssertDistroIsAlmaLinux9(action.CheckAction):
@@ -103,4 +104,42 @@ class AssertPackagesUpToDate(action.CheckAction):
         subprocess.check_call(["/usr/bin/yum", "clean", "all"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         checker = subprocess.run(["/usr/bin/yum", "check-update"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return checker.returncode == 0
+
+
+class AssertNoOldRPMSignatures(action.CheckAction):
+    _fail_for_plesk_packages: bool
+
+    def __init__(self, fail_for_plesk_packages: bool = True):
+        self._fail_for_plesk_packages = fail_for_plesk_packages
+        self.name = "checking if all RPMs have modern SHA256 signing"
+        self.description = "There are packages which are signed with old methods.\n\t"
+
+    @classmethod
+    def _could_be_leftover_package(cls, pkg_name: str, include_php: bool = False) -> bool:
+        return ((pkg_name.startswith('plesk-php') if include_php else False) or
+                (pkg_name.startswith('plesk-') and not pkg_name.startswith('plesk-php')) or
+                pkg_name.startswith('sw-') or
+                (pkg_name.startswith('pp') and pkg_name.endswith('-bootstrapper')))
+
+    def _do_check(self) -> bool:
+        packs = rpm.get_packages_with_sign_method('DSA/SHA1')
+        if not packs:
+            return True
+
+        plesk_packs = []
+        other_packs = []
+        for name, ver in packs:
+            if self._could_be_leftover_package(name):
+                plesk_packs.append((name, ver))
+            else:
+                other_packs.append((name, ver))
+
+        if self._fail_for_plesk_packages and plesk_packs:
+            self.description += "- Found Plesk packages: autoremove those by passing '--rm-sha1-plesk-packages'\n\t"
+        if not other_packs and not self._fail_for_plesk_packages:
+            return True
+        if other_packs:
+            self.description += "- Consider remove/reinstall:\n\t\t{}".format(
+                ' '.join([f"{name}-{ver}" for name, ver in other_packs]))
+        return False
 

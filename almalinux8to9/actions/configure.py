@@ -5,7 +5,7 @@ import shutil
 import typing
 from functools import partial
 
-from pleskdistup.common import action, leapp_configs, files, rpm
+from pleskdistup.common import action, leapp_configs, files, rpm, util
 from .common import get_adapted_repository
 
 
@@ -79,6 +79,9 @@ class PleskMainRepoTemporary(action.ActiveAction):
     def _prepare_action(self) -> action.ActionResult:
         repofiles = files.find_files_case_insensitive("/etc/yum.repos.d", ["plesk*.repo"])
         self._create_temporary_plesk_repo(repofiles, self.repo_filepath)
+        # We need this update since plesk installer will not upgrade "same-version" packages
+        # so these packages might be stuck at old DSA/SHA1 signed
+        util.logged_check_call(["/usr/bin/dnf", "-y", "update", "--disablerepo=elevate"])
         return action.ActionResult()
 
     def _post_action(self) -> action.ActionResult:
@@ -90,6 +93,9 @@ class PleskMainRepoTemporary(action.ActiveAction):
         if os.path.exists(self.repo_filepath):
             os.unlink(self.repo_filepath)
         return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 10
 
 
 class LeappReposConfiguration(action.ActiveAction):
