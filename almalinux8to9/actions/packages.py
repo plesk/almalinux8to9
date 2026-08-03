@@ -7,6 +7,7 @@ from functools import partial
 
 from pleskdistup.common import action, files, leapp_configs, log, motd, packages, plesk, rpm, systemd, util
 from .common import get_adapted_repository
+from .common_checks import AssertNoOldRPMSignatures
 
 BASE_REPO_PATHS = ["/etc/yum.repos.d/base.repo", "/etc/yum.repos.d/almalinux-base.repo"]
 
@@ -80,6 +81,29 @@ class RemovePleskOutdatedPackages(action.ActiveAction):
 
     def estimate_prepare_time(self) -> int:
         return 2
+
+
+class RemovePleskSHA1Packages(action.ActiveAction):
+    def __init__(self) -> None:
+        self.name = "remove SHA1 signed Plesk packages"
+
+    def _prepare_action(self) -> action.ActionResult:
+        packs = rpm.get_packages_with_sign_method('DSA/SHA1')
+        packages.remove_packages(
+            ["{}-{}".format(name, vers) for name, vers in packs if AssertNoOldRPMSignatures._could_be_leftover_package(name)]
+        )
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        # They have old SHA1 signature so they are deprecated by modern Plesk packages
+        # So we can't reinstall them on revert, and seems like there is no need to do that anyway
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 20
 
 
 class ReinstallPhpmyadminPleskComponents(action.ActiveAction):
