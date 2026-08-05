@@ -22,7 +22,10 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
 
     _elevate_almalinux_rpm_url: str = "https://repo.almalinux.org/elevate/elevate-release-latest-el8.noarch.rpm"
     _leapp_vendors_postgres_repo: str = '/etc/leapp/files/vendors.d/postgresql.repo'
-    _sha1_only_php_packages: typing.List[str] = ["plesk-php56", "plesk-php70", "plesk-php74", "plesk-php80"]
+    _sha1_only_packages: typing.List[str] = [
+        "libc-client",
+        "plesk-php56", "plesk-php70", "plesk-php74", "plesk-php80",
+    ]
 
 
     def __init__(self):
@@ -211,7 +214,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 custom_actions.AddMysqlConnector(),
             ],
             "Repositories handling": [
-                custom_actions.SetRPMCryptoPolicy(self._sha1_only_php_packages, "LEGACY"),
+                custom_actions.SetRPMCryptoPolicy(self._sha1_only_packages, "LEGACY"),
                 custom_actions.AdoptRepositories(),
                 custom_actions.PostEnableRepos(["crb"]),
                 custom_actions.DisablePesEventsRemovePackages(["libidn"]),
@@ -357,7 +360,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             checks.append(common_actions.AssertSpamassassinAdditionalPluginsDisabled())
         if not self.allow_old_script_version and almalinux8to9.config.version:
             checks.append(common_actions.AssertScriptVersionUpToDate("https://github.com/plesk/almalinux8to9", "almalinux8to9", version.DistupgradeToolVersion(almalinux8to9.config.version)))
-        if not any(packages.is_package_installed(name) for name in self._sha1_only_php_packages):
+        if not any(packages.is_package_installed(name) for name in self._sha1_only_packages):
             checks.append(
                 custom_actions.AssertNoOldRPMSignatures(not self.rm_sha1_plesk_packages))
 
