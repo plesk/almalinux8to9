@@ -118,6 +118,7 @@ class AssertNoOldRPMSignatures(action.CheckAction):
     def _could_be_leftover_package(cls, pkg_name: str, include_php: bool = False) -> bool:
         return ((pkg_name.startswith('plesk-php') if include_php else False) or
                 (pkg_name.startswith('plesk-') and not pkg_name.startswith('plesk-php')) or
+                pkg_name.startswith('psa-') or
                 pkg_name.startswith('sw-') or
                 (pkg_name.startswith('pp') and pkg_name.endswith('-bootstrapper')))
 
