@@ -292,7 +292,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             common_actions.AssertPleskVersionIsAvailable(),
             common_actions.AssertPleskInstallerNotInProgress(),
             common_actions.AssertAvailableSpaceForLocation("/var/lib", REQUIRED_MINUMUM_SPACE_FOR_OVERLAY),
-            common_actions.AssertAvailableSpaceForLocation("/boot", 100 * 1024 * 1024),  # 100M required minimum space to store bootloader
+            common_actions.AssertAvailableSpaceForLocation("/boot", 500 * 1024 * 1024),  # 500M required minimum space to store bootloader
             common_actions.AssertMinPhpVersionInstalled(FIRST_SUPPORTED_BY_ALMA_8_PHP_VERSION),
             common_actions.AssertMinPhpVersionUsedByWebsites(FIRST_SUPPORTED_BY_ALMA_8_PHP_VERSION),
             common_actions.AssertMinPhpVersionUsedByCron(FIRST_SUPPORTED_BY_ALMA_8_PHP_VERSION),
