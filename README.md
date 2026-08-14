@@ -41,7 +41,7 @@ To retrieve the latest available version of the tool, please navigate to the "Re
 
 To prepare the latest version of the tool for use from a command line, please run the following commands:
 ```shell
-> wget https://github.com/plesk/almalinux8to9/releases/download/v1.5.0/almalinux8to9.zip
+> wget https://github.com/plesk/almalinux8to9/releases/download/v1.6.0/almalinux8to9.zip
 > unzip almalinux8to9.zip
 > chmod 755 almalinux8to9
 ```
