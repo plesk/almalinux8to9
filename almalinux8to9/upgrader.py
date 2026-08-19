@@ -41,6 +41,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
         self.rm_sha1_plesk_packages = False
         self.remove_leapp_logs = False
         self.allow_old_script_version = False
+        self.skip_space_checks = False
 
     def __repr__(self) -> str:
         attrs = ", ".join(f"{k}={getattr(self, k)!r}" for k in (
@@ -291,8 +292,6 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
         checks = [
             common_actions.AssertPleskVersionIsAvailable(),
             common_actions.AssertPleskInstallerNotInProgress(),
-            common_actions.AssertAvailableSpaceForLocation("/var/lib", REQUIRED_MINUMUM_SPACE_FOR_OVERLAY),
-            common_actions.AssertAvailableSpaceForLocation("/boot", 500 * 1024 * 1024),  # 500M required minimum space to store bootloader
             common_actions.AssertMinPhpVersionInstalled(FIRST_SUPPORTED_BY_ALMA_8_PHP_VERSION),
             common_actions.AssertMinPhpVersionUsedByWebsites(FIRST_SUPPORTED_BY_ALMA_8_PHP_VERSION),
             common_actions.AssertMinPhpVersionUsedByCron(FIRST_SUPPORTED_BY_ALMA_8_PHP_VERSION),
@@ -364,6 +363,13 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
         if not any(packages.is_package_installed(name) for name in self._sha1_only_packages):
             checks.append(
                 custom_actions.AssertNoOldRPMSignatures(not self.rm_sha1_plesk_packages))
+        if not self.skip_space_checks:
+            checks.append(
+                common_actions.AssertAvailableSpaceForLocation("/var/lib", REQUIRED_MINUMUM_SPACE_FOR_OVERLAY),
+            )
+            checks.append(
+                common_actions.AssertAvailableSpaceForLocation("/boot", 500 * 1024 * 1024),  # 500M required minimum space to store bootloader
+            )
 
         return checks
 
@@ -428,6 +434,10 @@ the log file.
             "--rm-sha1-plesk-packages", action="store_true",
             help="remove SHA1 signed old Plesk packages before conversion."
         )
+        parser.add_argument(
+            "--skip-space-checks", action="store_true",
+            help=argparse.SUPPRESS,
+        )
         parser.set_defaults(remove_leapp_logs=False)
         options = parser.parse_args(args)
 
@@ -441,6 +451,7 @@ the log file.
         self.remove_leapp_logs = options.remove_leapp_logs
         self.allow_old_script_version = options.allow_old_script_version
         self.fix_deprecated_if_scripts = options.fix_deprecated_if_scripts
+        self.skip_space_checks = options.skip_space_checks
 
 
 class AlmaLinux8to9Factory(DistUpgraderFactory):
