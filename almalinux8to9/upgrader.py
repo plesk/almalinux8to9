@@ -152,6 +152,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                     service_name = common_actions.DEFAULT_RESUME_SERVICE_NAME,
                     remove_service_in_post = False, # will be removed before reboot
                 ),
+                common_actions.StopStartServices(["logrotate.timer"], disable_on_prep=False),
             ],
             "Prepare configurations": [
                 common_actions.RepairPleskInstallation(),  # Executed at the finish phase only
