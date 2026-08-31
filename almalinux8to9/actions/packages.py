@@ -12,6 +12,29 @@ from .common_checks import AssertNoOldRPMSignatures
 BASE_REPO_PATHS = ["/etc/yum.repos.d/base.repo", "/etc/yum.repos.d/almalinux-base.repo"]
 
 
+class PrepEnableRepos(action.ActiveAction):
+    repos: typing.List[str]
+
+    def __init__(self, repos: typing.List[str]) -> None:
+        self.name = f"prep enable repos: '{repos}'"
+        self.repos = repos
+
+    def _prepare_action(self) -> action.ActionResult:
+        for r in self.repos:
+            util.logged_check_call(["/usr/bin/dnf", "config-manager", "--set-enabled", r])
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        # for now don't disable blindly since they better be enabled
+        return action.ActionResult()
+
+    def estimate_prepare_time(self) -> int:
+        return 2
+
+
 class PostEnableRepos(action.ActiveAction):
     repos: typing.List[str]
 
