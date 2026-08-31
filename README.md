@@ -82,7 +82,7 @@ You can remove this message from the /etc/motd file.
 ```
 
 ### Conversion stage options
-The conversion process consists of two stage options: "start", and "finish". To run stages individually, use the "--start", and "--finish" flags, or the "-s" flag with name of the stage you want to run.
+The conversion process consists of two stage options: "start", and "finish":
 1. The "start" stage installs and configures ELevate, disables Plesk services and runs ELevate. It then stops Plesk services and reboots the server.
 2. The "finish" stage must be called automatically on the first boot of AlmaLinux 9. You can rerun this stage if something goes wrong during the first boot to ensure that the problem is fixed and Plesk is ready to use.
 
@@ -152,7 +152,7 @@ See the /var/log/plesk/almalinux8to9.log file for more information.
 You can remove this message from the /etc/motd file.
 ===============================================================================
 ```
-You can read the almalinux8to9 log to troubleshoot the issue. If the almalinux8to9 finish stage fails for any reason, once you have resolved the root cause of the failure, you can retry by running 'almalinux8to9 -s finish'.
+You can read the almalinux8to9 log to troubleshoot the issue. If the almalinux8to9 finish stage fails for any reason, once you have resolved the root cause of the failure, you can retry by running 'almalinux8to9 --resume'.
 
 ### Send feedback
 If you got any error, please [create an issue on github](https://github.com/plesk/almalinux8to9/issues). To do generate feedback archive by calling the tool with '-f' or '--prepare-feedback' flags.
