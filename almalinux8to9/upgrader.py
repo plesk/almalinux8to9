@@ -219,6 +219,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             "Repositories handling": [
                 custom_actions.SetRPMCryptoPolicy(self._sha1_only_packages, "LEGACY"),
                 custom_actions.AdoptRepositories(),
+                custom_actions.PrepEnableRepos(["powertools"]),
                 custom_actions.PostEnableRepos(["crb"]),
                 custom_actions.DisablePesEventsRemovePackages(["libidn"]),
             ],
