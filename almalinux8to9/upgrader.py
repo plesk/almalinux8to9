@@ -201,7 +201,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 common_actions.DisableSuspiciousKernelModules(),
                 common_actions.HandleUpdatedSpamassassinConfig(),
                 common_actions.DisableSelinuxDuringUpgrade(),
-                custom_actions.RestoreMissingNginx(),
+                common_actions.RestoreMissingNginx(),
                 common_actions.ReinstallAmavisAntivirus(),
                 custom_actions.HandleInternetxRepository(),
             ],
