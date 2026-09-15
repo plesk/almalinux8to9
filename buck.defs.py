@@ -22,7 +22,7 @@ def get_git_revision(path=None):
 
 
 def get_git_revision_description(dirty=True, path=None):
-    cmd = ['git', 'describe', '--match', 'v[0-9]*']
+    cmd = ['git', 'describe', '--tags', '--match', 'v[0-9]*']
     if dirty is True:
         cmd.append('--dirty')
     if not path:
