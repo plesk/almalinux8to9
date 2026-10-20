@@ -7,13 +7,19 @@
 import glob
 import os
 import shutil
+import subprocess
 
-from pleskdistup.common import action, util
+from pleskdistup.common import action, log, packages, systemd, util
 
 NM_SCRIPTS_DIR = "/opt/network-scripts"
 IF_SBIN_SCRIPTS_PATTERN = "/sbin/if*-local"
 NM_IF_SCRIPTS_PATTERN = "/opt/network-scripts/if*-local"
 NW_SCRIPTS_DEVICE_GLOB = "/etc/sysconfig/network-scripts/ifcfg-*"
+
+PLESK_BIN = "/usr/sbin/plesk"
+IFMNG_CMD = [PLESK_BIN, "sbin", "ifmng"]
+NMSTATECTL_BIN = "/usr/bin/nmstatectl"
+NM_SERVICE = "NetworkManager.service"
 
 NM_IFLOCAL_SCRIPT_PATH = "/etc/NetworkManager/dispatcher.d/20-if-local"
 NM_IFLOCAL_SCRIPT = """#!/bin/bash
@@ -120,3 +126,42 @@ Make sure they are NM_CONTROLLED and behave fine with NetworkManager operations.
             return True
         self.description = self.description.format(", ".join(ll))
         return False
+
+
+class SwitchIfmngToNetworkManager(action.ActiveAction):
+    """
+    Leapp forces NetworkManager but Plesk ifcfg defaults to sysconfig, so set it.
+    """
+
+    def __init__(self) -> None:
+        self.name = "switch Plesk ifmng to NetworkManager backend"
+
+    def _prepare_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def _post_action(self) -> action.ActionResult:
+        current = util.logged_check_call([*IFMNG_CMD, "--get-manager"]).strip()
+        if current and current != "sysconfig":
+            log.info(f"ifmng network manager is already set to {current!r}, leaving it as is")
+            return action.ActionResult()
+
+        if not systemd.is_service_active(NM_SERVICE):
+            log.warn(f"{NM_SERVICE} is not active, ifmng network manager is not changed")
+            return action.ActionResult()
+
+        if not os.path.isfile(NMSTATECTL_BIN):
+            packages.install_packages(["nmstate"])
+
+        try:
+            util.logged_check_call([*IFMNG_CMD, "--set-manager", "networkmanager"])
+        except subprocess.CalledProcessError:
+            log.warn("Unable to switch ifmng to the networkmanager backend. "
+                     "Run `plesk bin ifmng --set-manager networkmanager` manually.")
+
+        return action.ActionResult()
+
+    def _revert_action(self) -> action.ActionResult:
+        return action.ActionResult()
+
+    def estimate_post_time(self) -> int:
+        return 10
