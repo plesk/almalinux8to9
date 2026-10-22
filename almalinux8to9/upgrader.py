@@ -156,6 +156,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
             ],
             "Prepare configurations": [
                 common_actions.RepairPleskInstallation(),  # Executed at the finish phase only
+                custom_actions.SwitchIfmngToNetworkManager(),  # Executed at the finish phase only
                 common_actions.RevertChangesInGrub(),
                 custom_actions.RemoveOldPostgresRepoDefs(self._leapp_vendors_postgres_repo),
                 custom_actions.PrepareLeappConfigurationBackup(),
