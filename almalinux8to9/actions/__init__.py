@@ -1,5 +1,6 @@
 # Copyright 1999 - 2026. WebPros International GmbH. All rights reserved.
 from .common_checks import *
+from .chroot import *
 from .common import *
 from .configure import *
 from .convert import *

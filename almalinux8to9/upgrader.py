@@ -178,6 +178,7 @@ class AlmaLinux8to9Upgrader(DistUpgrader):
                 common_actions.RestoreDovecotConfiguration(options.state_dir),
                 common_actions.RestoreRoundcubeConfiguration(options.state_dir),
                 common_actions.RecreateAwstatsConfigurationFiles(),
+                custom_actions.RebuildChrootTemplates(options.state_dir),
                 common_actions.UninstallTuxcareEls(),
                 common_actions.UninstallExtension("tuxcare-php"),
                 common_actions.PreserveMariadbConfig(),
